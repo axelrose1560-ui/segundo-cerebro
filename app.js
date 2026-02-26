@@ -43,7 +43,54 @@ const Storage = {
     getProvider() { return localStorage.getItem('segundo_cerebro_provider') || 'groq'; },
     setProvider(p) { localStorage.setItem('segundo_cerebro_provider', p); },
     getGroqKey() { return localStorage.getItem('segundo_cerebro_groq_key') || ''; },
-    setGroqKey(k) { localStorage.setItem('segundo_cerebro_groq_key', k); }
+    setGroqKey(k) { localStorage.setItem('segundo_cerebro_groq_key', k); },
+
+    exportData() {
+        const data = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            entries: this.getEntries(),
+            provider: this.getProvider(),
+            model: this.getModel()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `segundo-cerebro-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+
+    importData(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.entries || !Array.isArray(data.entries)) {
+                        reject(new Error('Formato inválido'));
+                        return;
+                    }
+                    this.saveEntries(data.entries);
+                    resolve(data.entries.length);
+                } catch (err) {
+                    reject(new Error('El archivo no es un backup válido'));
+                }
+            };
+            reader.onerror = () => reject(new Error('Error al leer el archivo'));
+            reader.readAsText(file);
+        });
+    },
+
+    updateEntry(id, updates) {
+        const entries = this.getEntries();
+        const idx = entries.findIndex(e => e.id === id);
+        if (idx === -1) return null;
+        Object.assign(entries[idx], updates);
+        this.saveEntries(entries);
+        return entries[idx];
+    }
 };
 
 // ---- AI PROVIDER ----
@@ -51,7 +98,7 @@ const CORNELL_PROMPT = `Eres un asistente de diario personal. Analiza este texto
 Devuelve SOLO un JSON válido con esta estructura exacta:
 {
   "title": "Título corto (máx 8 palabras)",
-  "area": "UNA de: Dinero, Aprendizaje, Relaciones, Viajes, Historia, Random",
+  "area": "UNA de: Diario, Dinero, Aprendizaje, Relaciones, Viajes, Historia, Random",
   "keyIdeas": ["idea 1", "idea 2", "idea 3"],
   "summary": "Resumen de 2-3 oraciones",
   "flashcards": [
@@ -61,7 +108,8 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
 }
 Reglas:
 - 3 a 5 ideas clave como frases cortas
-- El área debe ser la más relevante al contenido
+- Usa "Diario" SOLO si el texto es un registro cotidiano sin aprendizaje o crecimiento claro (ej: "hoy desayuné, fui al gym, vi Netflix")
+- Para cualquier otro contenido, usa el área más relevante
 - Las flashcards deben ayudar a memorizar lo escrito
 - NO incluyas markdown ni texto extra, solo JSON puro`;
 
@@ -133,7 +181,7 @@ const AIProvider = {
     parseResult(txt) {
         txt = txt.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
         const result = JSON.parse(txt);
-        const validAreas = ['Dinero', 'Aprendizaje', 'Relaciones', 'Viajes', 'Historia', 'Random'];
+        const validAreas = ['Diario', 'Dinero', 'Aprendizaje', 'Relaciones', 'Viajes', 'Historia', 'Random'];
         if (!validAreas.includes(result.area)) result.area = 'Random';
         if (!Array.isArray(result.keyIdeas)) result.keyIdeas = [];
         if (!Array.isArray(result.flashcards)) result.flashcards = [];
@@ -229,13 +277,56 @@ const DiaryView = {
         badge.className = 'area-badge area-badge-empty';
     },
 
+    allAreas: ['Diario', 'Dinero', 'Aprendizaje', 'Relaciones', 'Viajes', 'Historia', 'Random'],
+    areaIcons: { Diario: '📓', Dinero: '💰', Aprendizaje: '📚', Relaciones: '❤️', Viajes: '✈️', Historia: '📖', Random: '🎲' },
+
     renderCornell(data) {
         document.getElementById('entryTitle').textContent = data.title;
         const badge = document.getElementById('entryArea');
         badge.textContent = data.area;
         badge.className = 'area-badge area-' + data.area.toLowerCase();
+        badge.title = 'Click para cambiar área';
+        badge.style.cursor = 'pointer';
+        badge.onclick = () => this.showAreaSelector(badge);
         document.getElementById('keyIdeasText').value = (data.keyIdeas || []).join('\n');
         document.getElementById('daySummary').value = data.summary || '';
+    },
+
+    showAreaSelector(badge) {
+        if (!this.currentEntryId) return;
+        // Remove existing selector
+        const existing = document.querySelector('.area-selector');
+        if (existing) { existing.remove(); return; }
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'area-selector';
+        this.allAreas.forEach(area => {
+            const opt = document.createElement('button');
+            opt.className = 'area-selector-option area-' + area.toLowerCase();
+            opt.textContent = `${this.areaIcons[area]} ${area}`;
+            opt.onclick = (e) => {
+                e.stopPropagation();
+                this.changeArea(area);
+                dropdown.remove();
+            };
+            dropdown.appendChild(opt);
+        });
+        badge.parentElement.style.position = 'relative';
+        badge.parentElement.appendChild(dropdown);
+        // Close on outside click
+        setTimeout(() => {
+            const close = (e) => { if (!dropdown.contains(e.target)) { dropdown.remove(); document.removeEventListener('click', close); } };
+            document.addEventListener('click', close);
+        }, 10);
+    },
+
+    changeArea(newArea) {
+        if (!this.currentEntryId) return;
+        Storage.updateEntry(this.currentEntryId, { area: newArea });
+        const badge = document.getElementById('entryArea');
+        badge.textContent = newArea;
+        badge.className = 'area-badge area-' + newArea.toLowerCase();
+        App.toast(`✅ Área cambiada a ${newArea}`);
     },
 
     async process() {
@@ -288,6 +379,7 @@ const DiaryView = {
 // ---- MAP VIEW ----
 const MapView = {
     areas: [
+        { key: 'Diario', icon: '📓', css: 'area-diario' },
         { key: 'Dinero', icon: '💰', css: 'area-dinero' },
         { key: 'Aprendizaje', icon: '📚', css: 'area-aprendizaje' },
         { key: 'Relaciones', icon: '❤️', css: 'area-relaciones' },
@@ -329,7 +421,7 @@ const MapView = {
             return;
         }
         const areaColors = {
-            Dinero: '#27AE60', Aprendizaje: '#2E86AB', Relaciones: '#E74C3C',
+            Diario: '#5D6D7E', Dinero: '#27AE60', Aprendizaje: '#2E86AB', Relaciones: '#E74C3C',
             Viajes: '#F39C12', Historia: '#8E44AD', Random: '#7F8C8D'
         };
         tl.innerHTML = entries.map(e => {
@@ -434,6 +526,27 @@ const Settings = {
         document.getElementById('settingsModal').style.display = 'none';
         const name = provider === 'groq' ? '🚀 Groq' : '🔮 Gemini';
         App.toast(`✅ Guardado (${name})`);
+    },
+    exportData() {
+        Storage.exportData();
+        App.toast('📦 Backup descargado');
+    },
+    async importData() {
+        const input = document.getElementById('importFile');
+        input.click();
+        input.onchange = async () => {
+            const file = input.files[0];
+            if (!file) return;
+            try {
+                const count = await Storage.importData(file);
+                App.toast(`✅ ${count} entradas restauradas`);
+                DiaryView.loadSelector();
+                DiaryView.newEntry();
+            } catch (err) {
+                App.toast('❌ ' + err.message);
+            }
+            input.value = '';
+        };
     }
 };
 

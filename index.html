@@ -158,6 +158,19 @@
                 <button class="btn-secondary" onclick="Settings.close()">Cancelar</button>
                 <button class="btn-primary" onclick="Settings.save()">Guardar</button>
             </div>
+            <hr class="modal-divider">
+            <h4 class="modal-section-title">💾 Tus Datos</h4>
+            <p class="modal-help" style="margin-top:0;">Exporta un backup de todas tus entradas o restaura desde un
+                archivo.</p>
+            <div class="data-actions">
+                <button class="btn-export" onclick="Settings.exportData()">
+                    📦 Exportar Datos
+                </button>
+                <button class="btn-import" onclick="Settings.importData()">
+                    📥 Importar Datos
+                </button>
+            </div>
+            <input type="file" id="importFile" accept=".json" style="display:none;">
         </div>
     </div>
 

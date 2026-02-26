@@ -263,6 +263,10 @@ body {
     background: #7F8C8D;
 }
 
+.area-badge.area-diario {
+    background: #5D6D7E;
+}
+
 .area-badge-empty {
     background: var(--grid-line);
     color: var(--ink-lighter);
@@ -497,6 +501,44 @@ body {
 
 .area-random {
     background: linear-gradient(135deg, #7F8C8D, #616A6B);
+}
+
+.area-diario {
+    background: linear-gradient(135deg, #5D6D7E, #4A5A6A);
+}
+
+/* ===== AREA SELECTOR DROPDOWN ===== */
+.area-selector {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    background: var(--paper);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    z-index: 50;
+    overflow: hidden;
+    animation: slideUp 0.2s ease;
+    min-width: 160px;
+}
+
+.area-selector-option {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    text-align: left;
+    transition: filter 0.2s;
+}
+
+.area-selector-option:hover {
+    filter: brightness(1.15);
 }
 
 /* ===== TIMELINE ===== */
@@ -794,6 +836,62 @@ body {
 
 .btn-secondary:hover {
     background: var(--paper-alt);
+}
+
+/* ===== MODAL DATA SECTION ===== */
+.modal-divider {
+    border: none;
+    border-top: 1px solid var(--grid-line);
+    margin: 20px 0 16px;
+}
+
+.modal-section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.data-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-export,
+.btn-import {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #27AE60, #1E8449);
+    color: white;
+}
+
+.btn-export:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.btn-import {
+    background: linear-gradient(135deg, #2E86AB, #1E6E8F);
+    color: white;
+}
+
+.btn-import:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(46, 134, 171, 0.3);
 }
 
 /* ===== LOADING ===== */
