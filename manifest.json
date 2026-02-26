@@ -1,0 +1,17 @@
+{
+    "name": "Segundo Cerebro",
+    "short_name": "2doCerebro",
+    "description": "Tu diario personal inteligente con el Método Cornell",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#FDF6E3",
+    "theme_color": "#FDF6E3",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}

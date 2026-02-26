@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Segundo Cerebro — Diario Personal Inteligente</title>
+    <meta name="description" content="Tu diario personal inteligente con el Método Cornell">
+    <meta name="theme-color" content="#FDF6E3">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Segundo Cerebro">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="logo">📓</span>
+            <h1 class="app-title">Segundo Cerebro</h1>
+        </div>
+        <button class="settings-btn" onclick="Settings.open()" title="Configuración">⚙️</button>
+    </header>
+
+    <nav class="bottom-nav">
+        <a href="#diario" class="nav-tab active" data-view="diario">
+            <span class="nav-icon">✏️</span><span class="nav-label">Diario</span>
+        </a>
+        <a href="#mapa" class="nav-tab" data-view="mapa">
+            <span class="nav-icon">🧠</span><span class="nav-label">Mapa</span>
+        </a>
+        <a href="#flashcards" class="nav-tab" data-view="flashcards">
+            <span class="nav-icon">🃏</span><span class="nav-label">Flashcards</span>
+        </a>
+    </nav>
+
+    <main class="app-main">
+        <!-- DIARY VIEW -->
+        <section id="view-diario" class="view active">
+            <div class="diary-controls">
+                <div class="diary-date" id="currentDate"></div>
+                <select id="entrySelector" class="entry-select">
+                    <option value="new">+ Nueva entrada</option>
+                </select>
+            </div>
+            <div class="notebook-page">
+                <div class="notebook-header" id="notebookHeader">
+                    <h2 class="entry-title" id="entryTitle">Nueva Entrada</h2>
+                    <span class="area-badge area-badge-empty" id="entryArea">Sin área</span>
+                </div>
+                <div class="cornell-layout">
+                    <aside class="cornell-left">
+                        <div class="cornell-label">IDEAS CLAVE</div>
+                        <textarea id="keyIdeasText" class="cornell-textarea"
+                            placeholder="✏️ Escribe tus ideas clave aquí...&#10;&#10;También se llenarán automáticamente al procesar con IA."></textarea>
+                    </aside>
+                    <div class="cornell-right">
+                        <div class="cornell-label cornell-label-notes">NOTAS</div>
+                        <textarea id="diaryText" class="diary-textarea"
+                            placeholder="✏️ Escribe libremente lo que aprendiste hoy...&#10;&#10;No te preocupes por la estructura, la IA se encargará de organizarlo con el Método Cornell."></textarea>
+                    </div>
+                </div>
+                <div class="cornell-bottom" id="cornellBottom">
+                    <div class="cornell-label">RESUMEN</div>
+                    <textarea id="daySummary" class="cornell-textarea summary-textarea"
+                        placeholder="✏️ Escribe tu resumen aquí...&#10;&#10;También se llenará automáticamente al procesar con IA."></textarea>
+                </div>
+            </div>
+            <div class="diary-actions">
+                <button class="btn-process" id="processBtn" onclick="DiaryView.process()">
+                    <span>🔮</span> Procesar con IA
+                </button>
+                <button class="btn-new" id="newEntryBtn" onclick="DiaryView.newEntry()" style="display:none;">
+                    <span>📝</span> Nueva Entrada
+                </button>
+            </div>
+        </section>
+
+        <!-- MAP VIEW -->
+        <section id="view-mapa" class="view">
+            <h2 class="section-title"><em>Mapa Conceptual</em></h2>
+            <p class="section-subtitle">Tus ideas organizadas por áreas de vida</p>
+            <div class="areas-grid" id="areasGrid"></div>
+            <h3 class="timeline-title">📅 Línea de Tiempo</h3>
+            <div class="timeline" id="timeline">
+                <p class="placeholder">Escribe entradas en tu diario para ver la línea de tiempo</p>
+            </div>
+        </section>
+
+        <!-- FLASHCARDS VIEW -->
+        <section id="view-flashcards" class="view">
+            <h2 class="section-title"><em>Flashcards</em></h2>
+            <p class="section-subtitle">Repasa lo que aprendiste</p>
+            <div id="flashcardEmpty" class="empty-state">
+                <span class="empty-icon">🃏</span>
+                <p>Aún no hay flashcards.<br>Escribe en tu diario y procesa con IA.</p>
+            </div>
+            <div id="flashcardPlayer" style="display:none;">
+                <div class="fc-counter"><span id="fcCurrent">1</span> / <span id="fcTotal">0</span></div>
+                <div class="flashcard" id="flashcard" onclick="FlashcardsView.flip()">
+                    <div class="flashcard-inner" id="flashcardInner">
+                        <div class="flashcard-face flashcard-front">
+                            <span class="fc-label">PREGUNTA</span>
+                            <p id="fcQuestion"></p>
+                            <span class="fc-hint">toca para voltear</span>
+                        </div>
+                        <div class="flashcard-face flashcard-back">
+                            <span class="fc-label">RESPUESTA</span>
+                            <p id="fcAnswer"></p>
+                            <span class="fc-hint">toca para voltear</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="fc-nav">
+                    <button class="fc-arrow" onclick="FlashcardsView.prev()">◀</button>
+                    <div class="fc-dots" id="fcDots"></div>
+                    <button class="fc-arrow" onclick="FlashcardsView.next()">▶</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" style="display:none;" onclick="Settings.close(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>⚙️ Configuración</h3>
+            <label for="providerSelect">Proveedor de IA</label>
+            <select id="providerSelect" class="modal-input" onchange="Settings.toggleProvider()">
+                <option value="groq">🚀 Groq (recomendado - gratis)</option>
+                <option value="gemini">🔮 Google Gemini</option>
+            </select>
+            <div id="groqSettings" style="margin-top:12px;">
+                <label for="groqKeyInput">API Key de Groq</label>
+                <input type="password" id="groqKeyInput" placeholder="gsk_..." class="modal-input">
+                <p class="modal-help">Obtén tu key gratis en <a href="https://console.groq.com/keys" target="_blank"
+                        rel="noopener">console.groq.com/keys</a></p>
+            </div>
+            <div id="geminiSettings" style="margin-top:12px; display:none;">
+                <label for="apiKeyInput">API Key de Gemini</label>
+                <input type="password" id="apiKeyInput" placeholder="AIza..." class="modal-input">
+                <p class="modal-help">Obtén tu key gratis en <a href="https://aistudio.google.com/apikey"
+                        target="_blank" rel="noopener">aistudio.google.com</a></p>
+                <label for="modelSelect" style="margin-top:8px;">Modelo</label>
+                <select id="modelSelect" class="modal-input">
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+                </select>
+            </div>
+            <div class="modal-actions" style="margin-top:16px;">
+                <button class="btn-secondary" onclick="Settings.close()">Cancelar</button>
+                <button class="btn-primary" onclick="Settings.save()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Procesando con IA...</p>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
