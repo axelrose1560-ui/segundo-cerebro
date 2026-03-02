@@ -2,31 +2,118 @@
    SEGUNDO CEREBRO - App Principal
    ============================================ */
 
-// ---- STORAGE ----
+// ---- INDEXED DB STORAGE ----
 const Storage = {
-    KEY: 'segundo_cerebro_entries',
+    DB_NAME: 'SegundoCerebroDB',
+    DB_VERSION: 1,
+    STORE_NAME: 'entries',
     API_KEY: 'segundo_cerebro_apikey',
+    _db: null,
 
-    getEntries() {
-        try { return JSON.parse(localStorage.getItem(this.KEY)) || []; }
-        catch { return []; }
+    async init() {
+        if (this._db) return this._db;
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request.onerror = () => reject(request.error);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                    const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
+                    store.createIndex('date', 'date', { unique: false });
+                    store.createIndex('area', 'area', { unique: false });
+                    store.createIndex('createdAt', 'createdAt', { unique: false });
+                }
+            };
+            request.onsuccess = () => {
+                this._db = request.result;
+                resolve(this._db);
+            };
+        });
     },
-    saveEntries(entries) { localStorage.setItem(this.KEY, JSON.stringify(entries)); },
 
-    addEntry(entry) {
-        const entries = this.getEntries();
+    async migrateFromLocalStorage() {
+        try {
+            const oldKey = 'segundo_cerebro_entries';
+            const raw = localStorage.getItem(oldKey);
+            if (!raw) return;
+            const entries = JSON.parse(raw);
+            if (!Array.isArray(entries) || entries.length === 0) return;
+
+            // Check if we already have data in IndexedDB
+            const existing = await this.getEntries();
+            if (existing.length > 0) return; // Already migrated
+
+            const db = await this.init();
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+
+            for (const entry of entries) {
+                store.put(entry);
+            }
+
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+
+            // Mark migration as done (but keep old data as backup for a while)
+            localStorage.setItem('segundo_cerebro_migrated', 'true');
+            console.log(`✅ Migrated ${entries.length} entries from localStorage to IndexedDB`);
+        } catch (err) {
+            console.error('Migration error:', err);
+        }
+    },
+
+    async getEntries() {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readonly');
+            const store = tx.objectStore(this.STORE_NAME);
+            const request = store.getAll();
+            request.onsuccess = () => {
+                // Sort by createdAt descending (newest first)
+                const entries = request.result.sort((a, b) =>
+                    new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+                );
+                resolve(entries);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async addEntry(entry) {
         entry.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
         entry.createdAt = new Date().toISOString();
-        entries.unshift(entry);
-        this.saveEntries(entries);
-        return entry;
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            const request = store.add(entry);
+            request.onsuccess = () => resolve(entry);
+            request.onerror = () => reject(request.error);
+        });
     },
-    getEntry(id) { return this.getEntries().find(e => e.id === id); },
-    getByArea(area) { return this.getEntries().filter(e => e.area === area && e.processed); },
 
-    getAllFlashcards() {
+    async getEntry(id) {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readonly');
+            const store = tx.objectStore(this.STORE_NAME);
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async getByArea(area) {
+        const entries = await this.getEntries();
+        return entries.filter(e => e.area === area && e.processed);
+    },
+
+    async getAllFlashcards() {
+        const entries = await this.getEntries();
         const fc = [];
-        this.getEntries().forEach(entry => {
+        entries.forEach(entry => {
             if (entry.flashcards) {
                 entry.flashcards.forEach(card => {
                     fc.push({ ...card, entryTitle: entry.title, date: entry.date, area: entry.area });
@@ -36,6 +123,32 @@ const Storage = {
         return fc;
     },
 
+    async updateEntry(id, updates) {
+        const db = await this.init();
+        const entry = await this.getEntry(id);
+        if (!entry) return null;
+        Object.assign(entry, updates);
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            const request = store.put(entry);
+            request.onsuccess = () => resolve(entry);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async deleteEntry(id) {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // Settings still use localStorage (small data, no need for IndexedDB)
     getApiKey() { return localStorage.getItem(this.API_KEY) || ''; },
     setApiKey(key) { localStorage.setItem(this.API_KEY, key); },
     getModel() { return localStorage.getItem('segundo_cerebro_model') || 'gemini-2.0-flash'; },
@@ -45,11 +158,12 @@ const Storage = {
     getGroqKey() { return localStorage.getItem('segundo_cerebro_groq_key') || ''; },
     setGroqKey(k) { localStorage.setItem('segundo_cerebro_groq_key', k); },
 
-    exportData() {
+    async exportData() {
+        const entries = await this.getEntries();
         const data = {
-            version: 1,
+            version: 2,
             exportedAt: new Date().toISOString(),
-            entries: this.getEntries(),
+            entries: entries,
             provider: this.getProvider(),
             model: this.getModel()
         };
@@ -62,17 +176,28 @@ const Storage = {
         URL.revokeObjectURL(url);
     },
 
-    importData(file) {
+    async importData(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
                     if (!data.entries || !Array.isArray(data.entries)) {
                         reject(new Error('Formato inválido'));
                         return;
                     }
-                    this.saveEntries(data.entries);
+                    // Clear existing and import all
+                    const db = await this.init();
+                    const tx = db.transaction(this.STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(this.STORE_NAME);
+                    store.clear();
+                    for (const entry of data.entries) {
+                        store.put(entry);
+                    }
+                    await new Promise((res, rej) => {
+                        tx.oncomplete = res;
+                        tx.onerror = () => rej(tx.error);
+                    });
                     resolve(data.entries.length);
                 } catch (err) {
                     reject(new Error('El archivo no es un backup válido'));
@@ -83,13 +208,17 @@ const Storage = {
         });
     },
 
-    updateEntry(id, updates) {
-        const entries = this.getEntries();
-        const idx = entries.findIndex(e => e.id === id);
-        if (idx === -1) return null;
-        Object.assign(entries[idx], updates);
-        this.saveEntries(entries);
-        return entries[idx];
+    async getStorageInfo() {
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+            const estimate = await navigator.storage.estimate();
+            return {
+                used: estimate.usage || 0,
+                quota: estimate.quota || 0,
+                usedMB: ((estimate.usage || 0) / (1024 * 1024)).toFixed(2),
+                quotaMB: ((estimate.quota || 0) / (1024 * 1024)).toFixed(0)
+            };
+        }
+        return null;
     }
 };
 
@@ -212,20 +341,21 @@ const Router = {
 const DiaryView = {
     currentEntryId: null,
 
-    init() {
+    async init() {
         const now = new Date();
         const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', opts);
-        this.loadSelector();
+        await this.loadSelector();
         document.getElementById('entrySelector').addEventListener('change', e => {
             e.target.value === 'new' ? this.newEntry() : this.loadEntry(e.target.value);
         });
     },
 
-    loadSelector() {
+    async loadSelector() {
         const sel = document.getElementById('entrySelector');
         sel.innerHTML = '<option value="new">+ Nueva entrada</option>';
-        Storage.getEntries().forEach(entry => {
+        const entries = await Storage.getEntries();
+        entries.forEach(entry => {
             const o = document.createElement('option');
             o.value = entry.id;
             const d = new Date(entry.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
@@ -234,8 +364,8 @@ const DiaryView = {
         });
     },
 
-    loadEntry(id) {
-        const entry = Storage.getEntry(id);
+    async loadEntry(id) {
+        const entry = await Storage.getEntry(id);
         if (!entry) return;
         this.currentEntryId = id;
         document.getElementById('diaryText').value = entry.rawText;
@@ -302,7 +432,7 @@ const DiaryView = {
         dropdown.className = 'area-selector';
         this.allAreas.forEach(area => {
             const opt = document.createElement('button');
-            opt.className = 'area-selector-option area-' + area.toLowerCase();
+            opt.className = 'area-selector-option';
             opt.textContent = `${this.areaIcons[area]} ${area}`;
             opt.onclick = (e) => {
                 e.stopPropagation();
@@ -320,9 +450,9 @@ const DiaryView = {
         }, 10);
     },
 
-    changeArea(newArea) {
+    async changeArea(newArea) {
         if (!this.currentEntryId) return;
-        Storage.updateEntry(this.currentEntryId, { area: newArea });
+        await Storage.updateEntry(this.currentEntryId, { area: newArea });
         const badge = document.getElementById('entryArea');
         badge.textContent = newArea;
         badge.className = 'area-badge area-' + newArea.toLowerCase();
@@ -341,7 +471,7 @@ const DiaryView = {
 
         try {
             const result = await AIProvider.process(text);
-            const entry = Storage.addEntry({
+            const entry = await Storage.addEntry({
                 date: new Date().toISOString().split('T')[0],
                 rawText: text,
                 title: result.title,
@@ -359,7 +489,7 @@ const DiaryView = {
             document.getElementById('daySummary').readOnly = true;
             document.getElementById('processBtn').style.display = 'none';
             document.getElementById('newEntryBtn').style.display = 'flex';
-            this.loadSelector();
+            await this.loadSelector();
             document.getElementById('entrySelector').value = entry.id;
             App.toast('✅ ¡Entrada procesada!');
         } catch (err) {
@@ -388,16 +518,16 @@ const MapView = {
         { key: 'Random', icon: '🎲', css: 'area-random' }
     ],
 
-    render() {
-        this.renderCards();
-        this.renderTimeline();
+    async render() {
+        await this.renderCards();
+        await this.renderTimeline();
     },
 
-    renderCards() {
+    async renderCards() {
         const grid = document.getElementById('areasGrid');
         grid.innerHTML = '';
-        this.areas.forEach(area => {
-            const entries = Storage.getByArea(area.key);
+        for (const area of this.areas) {
+            const entries = await Storage.getByArea(area.key);
             const ideas = entries.flatMap(e => e.keyIdeas || []);
             const card = document.createElement('div');
             card.className = `area-card ${area.css}`;
@@ -410,12 +540,13 @@ const MapView = {
                 </ul>`;
             card.addEventListener('click', () => card.classList.toggle('expanded'));
             grid.appendChild(card);
-        });
+        }
     },
 
-    renderTimeline() {
+    async renderTimeline() {
         const tl = document.getElementById('timeline');
-        const entries = Storage.getEntries().filter(e => e.processed);
+        const allEntries = await Storage.getEntries();
+        const entries = allEntries.filter(e => e.processed);
         if (!entries.length) {
             tl.innerHTML = '<p class="placeholder">Escribe entradas en tu diario para ver la línea de tiempo</p>';
             return;
@@ -444,8 +575,8 @@ const FlashcardsView = {
     cards: [],
     index: 0,
 
-    render() {
-        this.cards = Storage.getAllFlashcards();
+    async render() {
+        this.cards = await Storage.getAllFlashcards();
         const empty = document.getElementById('flashcardEmpty');
         const player = document.getElementById('flashcardPlayer');
         if (!this.cards.length) {
@@ -506,6 +637,7 @@ const Settings = {
         document.getElementById('apiKeyInput').value = Storage.getApiKey();
         document.getElementById('modelSelect').value = Storage.getModel();
         this.toggleProvider();
+        this.updateStorageInfo();
         document.getElementById('settingsModal').style.display = 'flex';
     },
     close(e) {
@@ -527,8 +659,8 @@ const Settings = {
         const name = provider === 'groq' ? '🚀 Groq' : '🔮 Gemini';
         App.toast(`✅ Guardado (${name})`);
     },
-    exportData() {
-        Storage.exportData();
+    async exportData() {
+        await Storage.exportData();
         App.toast('📦 Backup descargado');
     },
     async importData() {
@@ -540,30 +672,80 @@ const Settings = {
             try {
                 const count = await Storage.importData(file);
                 App.toast(`✅ ${count} entradas restauradas`);
-                DiaryView.loadSelector();
+                await DiaryView.loadSelector();
                 DiaryView.newEntry();
             } catch (err) {
                 App.toast('❌ ' + err.message);
             }
             input.value = '';
         };
+    },
+    async updateStorageInfo() {
+        const infoEl = document.getElementById('storageInfo');
+        if (!infoEl) return;
+        const info = await Storage.getStorageInfo();
+        const entries = await Storage.getEntries();
+        if (info) {
+            infoEl.textContent = `📊 ${entries.length} entradas · ${info.usedMB} MB usados de ${info.quotaMB} MB`;
+        } else {
+            infoEl.textContent = `📊 ${entries.length} entradas`;
+        }
+    }
+};
+
+// ---- PWA INSTALL ----
+const PWAInstall = {
+    deferredPrompt: null,
+
+    init() {
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstallBanner();
+        });
+        window.addEventListener('appinstalled', () => {
+            this.hideInstallBanner();
+            App.toast('✅ ¡App instalada correctamente!');
+        });
+    },
+
+    showInstallBanner() {
+        const banner = document.getElementById('installBanner');
+        if (banner) banner.style.display = 'flex';
+    },
+
+    hideInstallBanner() {
+        const banner = document.getElementById('installBanner');
+        if (banner) banner.style.display = 'none';
+        this.deferredPrompt = null;
+    },
+
+    async install() {
+        if (!this.deferredPrompt) return;
+        this.deferredPrompt.prompt();
+        const { outcome } = await this.deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            App.toast('✅ ¡Instalando app!');
+        }
+        this.deferredPrompt = null;
+        this.hideInstallBanner();
     }
 };
 
 // ---- APP ----
 const App = {
-    init() {
+    async init() {
+        // Initialize IndexedDB and migrate from localStorage
+        await Storage.init();
+        await Storage.migrateFromLocalStorage();
+
         Router.init();
-        DiaryView.init();
+        await DiaryView.init();
+        PWAInstall.init();
+
         // Register service worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(() => { });
-        }
-        // Show settings if no API key for current provider
-        const provider = Storage.getProvider();
-        const hasKey = provider === 'groq' ? Storage.getGroqKey() : Storage.getApiKey();
-        if (!hasKey) {
-            setTimeout(() => Settings.open(), 500);
         }
     },
     toast(msg) {

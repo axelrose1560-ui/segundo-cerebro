@@ -1,17 +1,59 @@
 {
     "name": "Segundo Cerebro",
     "short_name": "2doCerebro",
-    "description": "Tu diario personal inteligente con el Método Cornell",
-    "start_url": "/",
+    "description": "Tu diario personal inteligente con el Método Cornell. Organiza tus pensamientos, genera flashcards con IA y rastrea tu crecimiento personal.",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#FDF6E3",
     "theme_color": "#FDF6E3",
+    "categories": ["productivity", "education", "lifestyle"],
+    "lang": "es",
+    "dir": "ltr",
     "icons": [
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
         {
             "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>",
             "sizes": "any",
             "type": "image/svg+xml"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Nueva Entrada",
+            "short_name": "Nueva",
+            "description": "Escribe una nueva entrada en tu diario",
+            "url": "./#diario",
+            "icons": [
+                {
+                    "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>",
+                    "sizes": "any"
+                }
+            ]
+        },
+        {
+            "name": "Flashcards",
+            "short_name": "Flashcards",
+            "description": "Repasa tus flashcards",
+            "url": "./#flashcards",
+            "icons": [
+                {
+                    "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>",
+                    "sizes": "any"
+                }
+            ]
         }
     ]
 }

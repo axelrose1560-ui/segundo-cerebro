@@ -11,6 +11,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Segundo Cerebro">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,6 +44,21 @@
             <span class="nav-icon">🃏</span><span class="nav-label">Flashcards</span>
         </a>
     </nav>
+
+    <!-- PWA Install Banner -->
+    <div class="install-banner" id="installBanner" style="display:none;">
+        <div class="install-banner-content">
+            <span class="install-banner-icon">📲</span>
+            <div class="install-banner-text">
+                <strong>Instalar Segundo Cerebro</strong>
+                <span>Accede desde tu pantalla de inicio</span>
+            </div>
+        </div>
+        <div class="install-banner-actions">
+            <button class="install-btn" onclick="PWAInstall.install()">Instalar</button>
+            <button class="install-dismiss" onclick="PWAInstall.hideInstallBanner()">✕</button>
+        </div>
+    </div>
 
     <main class="app-main">
         <!-- DIARY VIEW -->
@@ -160,8 +178,7 @@
             </div>
             <hr class="modal-divider">
             <h4 class="modal-section-title">💾 Tus Datos</h4>
-            <p class="modal-help" style="margin-top:0;">Exporta un backup de todas tus entradas o restaura desde un
-                archivo.</p>
+            <p class="modal-help storage-info" id="storageInfo" style="margin-top:0;">📊 Cargando info...</p>
             <div class="data-actions">
                 <button class="btn-export" onclick="Settings.exportData()">
                     📦 Exportar Datos
