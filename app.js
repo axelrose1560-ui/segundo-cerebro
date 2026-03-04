@@ -377,10 +377,14 @@ const DiaryView = {
             document.getElementById('keyIdeasText').readOnly = true;
             document.getElementById('daySummary').readOnly = true;
             document.getElementById('processBtn').style.display = 'none';
+            document.getElementById('editBtn').style.display = 'flex';
+            document.getElementById('deleteBtn').style.display = 'flex';
             document.getElementById('newEntryBtn').style.display = 'flex';
         } else {
             this.clearCornell();
             document.getElementById('processBtn').style.display = 'flex';
+            document.getElementById('editBtn').style.display = 'none';
+            document.getElementById('deleteBtn').style.display = 'none';
             document.getElementById('newEntryBtn').style.display = 'none';
         }
     },
@@ -395,6 +399,8 @@ const DiaryView = {
         document.getElementById('daySummary').readOnly = false;
         document.getElementById('entrySelector').value = 'new';
         document.getElementById('processBtn').style.display = 'flex';
+        document.getElementById('editBtn').style.display = 'none';
+        document.getElementById('deleteBtn').style.display = 'none';
         document.getElementById('newEntryBtn').style.display = 'none';
         this.clearCornell();
         document.getElementById('diaryText').focus();
@@ -459,6 +465,26 @@ const DiaryView = {
         App.toast(`✅ Área cambiada a ${newArea}`);
     },
 
+    enableEdit() {
+        if (!this.currentEntryId) return;
+        document.getElementById('diaryText').readOnly = false;
+        document.getElementById('keyIdeasText').readOnly = false;
+        document.getElementById('daySummary').readOnly = false;
+        document.getElementById('processBtn').style.display = 'flex';
+        document.getElementById('editBtn').style.display = 'none';
+        document.getElementById('diaryText').focus();
+        App.toast('✏️ Puedes editar la entrada. Presiona "Procesar con IA" para re-procesar.');
+    },
+
+    async deleteCurrentEntry() {
+        if (!this.currentEntryId) return;
+        if (!confirm('¿Seguro que quieres eliminar esta entrada?')) return;
+        await Storage.deleteEntry(this.currentEntryId);
+        App.toast('🗑️ Entrada eliminada');
+        await this.loadSelector();
+        this.newEntry();
+    },
+
     async process() {
         const text = document.getElementById('diaryText').value.trim();
         if (!text) { App.toast('Escribe algo en tu diario primero ✏️'); return; }
@@ -471,26 +497,44 @@ const DiaryView = {
 
         try {
             const result = await AIProvider.process(text);
-            const entry = await Storage.addEntry({
-                date: new Date().toISOString().split('T')[0],
-                rawText: text,
-                title: result.title,
-                area: result.area,
-                keyIdeas: result.keyIdeas,
-                keyIdeasText: result.keyIdeas.join('\n'),
-                summary: result.summary,
-                flashcards: result.flashcards,
-                processed: true
-            });
-            this.currentEntryId = entry.id;
+
+            // If editing an existing entry, update it instead of creating new
+            if (this.currentEntryId) {
+                await Storage.updateEntry(this.currentEntryId, {
+                    rawText: text,
+                    title: result.title,
+                    area: result.area,
+                    keyIdeas: result.keyIdeas,
+                    keyIdeasText: result.keyIdeas.join('\n'),
+                    summary: result.summary,
+                    flashcards: result.flashcards,
+                    processed: true
+                });
+            } else {
+                const entry = await Storage.addEntry({
+                    date: new Date().toISOString().split('T')[0],
+                    rawText: text,
+                    title: result.title,
+                    area: result.area,
+                    keyIdeas: result.keyIdeas,
+                    keyIdeasText: result.keyIdeas.join('\n'),
+                    summary: result.summary,
+                    flashcards: result.flashcards,
+                    processed: true
+                });
+                this.currentEntryId = entry.id;
+            }
+
             this.renderCornell(result);
             document.getElementById('diaryText').readOnly = true;
             document.getElementById('keyIdeasText').readOnly = true;
             document.getElementById('daySummary').readOnly = true;
             document.getElementById('processBtn').style.display = 'none';
+            document.getElementById('editBtn').style.display = 'flex';
+            document.getElementById('deleteBtn').style.display = 'flex';
             document.getElementById('newEntryBtn').style.display = 'flex';
             await this.loadSelector();
-            document.getElementById('entrySelector').value = entry.id;
+            document.getElementById('entrySelector').value = this.currentEntryId;
             App.toast('✅ ¡Entrada procesada!');
         } catch (err) {
             console.error(err);

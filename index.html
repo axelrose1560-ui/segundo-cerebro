@@ -96,6 +96,13 @@
                 <button class="btn-process" id="processBtn" onclick="DiaryView.process()">
                     <span>🔮</span> Procesar con IA
                 </button>
+                <button class="btn-edit" id="editBtn" onclick="DiaryView.enableEdit()" style="display:none;">
+                    <span>✏️</span> Editar
+                </button>
+                <button class="btn-delete" id="deleteBtn" onclick="DiaryView.deleteCurrentEntry()"
+                    style="display:none;">
+                    <span>🗑️</span> Eliminar
+                </button>
                 <button class="btn-new" id="newEntryBtn" onclick="DiaryView.newEntry()" style="display:none;">
                     <span>📝</span> Nueva Entrada
                 </button>
